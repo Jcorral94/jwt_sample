@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Json Web Token</title>
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        flex-wrap: wrap;
+        width: calc(100vw - 10px);
+      }
+      .section {
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        margin: 10px;
+        border: 1px solid #ffffff;
+        padding: 10px;
+      }
+      #review {
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .red {
+        background-color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="generalError"></div>
+    <div class="section">
+      <button id="request">Request Token</button>
+      <pre id="json"></pre>
+    </div>
+    <div class="section">
+      <input type="text" id="userId" />
+      <input type="text" id="token" />
+      <button id="ping">Submit</button>
+      <div id="review"></div>
+    </div>
+
+    <script>
+      // Do not generate id on the front end
+      const id = 7219894403;
+      const createUrl = "/token/create";
+      const element = document.querySelector("#json");
+      const tokenInput = document.querySelector("#token");
+      const userIdInput = document.querySelector("#userId");
+      const ping = document.querySelector("#ping");
+      const review = document.querySelector("#review");
+      const generalError = document.querySelector("#generalError");
+
+      document
+        .querySelector("#request")
+        .addEventListener("click", async (element) => {
+          try {
+            const { userId, token } = await requestToken(createUrl);
+            tokenInput.value = token;
+            userIdInput.value = userId;
+          } catch (error) {
+            generalError.textContent = error;
+          }
+        });
+
+      ping.addEventListener("click", async () => {
+        if (!userIdInput.value || !tokenInput.value) return;
+        try {
+          await reviewRequest(userIdInput.value, tokenInput.value);
+        } catch (error) {
+          generalError.textContent = error;
+        }
+      });
+
+      async function requestToken(url) {
+        const response = await fetch(url, {
+          method: "POST",
+          body: JSON.stringify({ id }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        if (!response.ok) return { error: "Response is not ok" };
+
+        const { id: userId, token } = await response.json();
+        updateVisual(element, { userId, token });
+        return { userId, token };
+      }
+
+      async function reviewRequest(userId, token) {
+        let style = false;
+        const response = await fetch(`/review/${userId}/${token}`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        if (!response.ok) return { error: "Response is not ok" };
+        const { ping } = await response.json();
+        if (!ping) style = true;
+
+        updateVisual(
+          review,
+          { ping, error: !ping ? "Token likely expired" : "No error" },
+          style
+        );
+        return { userId, token, ping };
+      }
+
+      function updateVisual(element, params = {}, style) {
+        element.classList.remove("red");
+        element.textContent = `${JSON.stringify({ ...params }, null, 2)}`;
+        if (style) element.classList.add("red");
+      }
+    </script>
+  </body>
+</html>
