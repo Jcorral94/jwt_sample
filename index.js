@@ -15,29 +15,52 @@ app.use(cors());
 app.post('/token/create', (req, res, next) => {
   const { id } = req.body;
 
-  if (!users[id]) users[id] = { blackListed: false };
-  if (users[id].blackListed) return res.json({ error: 'beep boop' })
+  if (!users[id]) users[id] = { blackListed: false, tokens: [] };
+  if (users[id].blackListed) {
+    res.status(403);
+    const error = new Error('Error:BL');
+    return next(error);
+  }
 
   setTimeout(() => {
-    users[id].blackListed = true;
-  }, 25000);
+    users[id].tokens[users[id].tokens.length - 1].blackListed = true;
+    console.log(users[id]);
+  }, 5000);
   const token = jwt.sign({ id, exp: Math.floor(Date.now() / 1000) + (2 * 60) }, SECRET);
+  users[id].tokens.push({ token, blackListed: false });
   return res.json({ id, token, exp: Math.floor(Date.now() / 1000) + (2 * 60) });
 });
 
-app.get('/review/:id/:token', (req, res) => {
+app.get('/review/:id/:token', (req, res, next) => {
   const { token, id } = req.params;
-  jwt.verify(req.params.token, SECRET, (error, decoded) => {
-    if (error) next(error);
-    if (users[id].blackListed) next('Blacklisted');
-    res.json({
-      ping: 'pong'
+  if (!users[id]) {
+    res.status(401);
+    const error = new Error('Error:ID');
+    return next(error);
+  }
+  const isTokenBlackListed = users[id].tokens.filter(t => t.token === token);
+  console.log(isTokenBlackListed);
+  if (isTokenBlackListed.length > 0 && isTokenBlackListed[0].blackListed) {
+    res.status(403);
+    // users[id].blackListed = false;
+    // users[id].tokens = users[id].tokens.filter(t => t !== token);
+    const error = new Error('Error:BL');
+    return next(error);
+  }
+  jwt.verify(token, SECRET, (error, decoded) => {
+    if (error) {
+      res.status(401);
+      return next(error);
+    }
+    return res.json({
+      ping: 'pong',
     });
   });
 });
 
 app.use((error, req, res, next) => {
-  res.json({ error });
+  console.log('Error handler', error);
+  res.json({ error: error.message });
 });
 
 app.listen(PORT, () => {

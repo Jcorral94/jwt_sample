@@ -30,7 +30,7 @@
     </style>
   </head>
   <body>
-    <div id="generalError"></div>
+    <div id="generalError" class="red"></div>
     <div class="section">
       <button id="request">Request Token</button>
       <pre id="json"></pre>
@@ -75,6 +75,9 @@
       });
 
       async function requestToken(url) {
+        element.textContent = "";
+        generalError.textContent = "";
+        review.textContent = "";
         const response = await fetch(url, {
           method: "POST",
           body: JSON.stringify({ id }),
@@ -82,7 +85,11 @@
             "Content-Type": "application/json",
           },
         });
-        if (!response.ok) return { error: "Response is not ok" };
+        if (!response.ok) {
+          throw new Error(
+            `Response is not ok  ${JSON.stringify(await response.json())}`
+          );
+        }
 
         const { id: userId, token } = await response.json();
         updateVisual(element, { userId, token });
@@ -90,21 +97,23 @@
       }
 
       async function reviewRequest(userId, token) {
+        review.textContent = "";
+        generalError.textContent = "";
+        element.textContent = "";
         let style = false;
         const response = await fetch(`/review/${userId}/${token}`, {
           headers: {
             "Content-Type": "application/json",
           },
         });
-        if (!response.ok) return { error: "Response is not ok" };
-        const { ping } = await response.json();
-        if (!ping) style = true;
+        const json = await response.json();
 
-        updateVisual(
-          review,
-          { ping, error: !ping ? "Token likely expired" : "No error" },
-          style
-        );
+        if (!response.ok)
+          throw new Error(`Response is not ok ${JSON.stringify(json)}`);
+
+        if (!json.ping) style = true;
+
+        updateVisual(review, { ping: json.ping }, style);
         return { userId, token, ping };
       }
 
